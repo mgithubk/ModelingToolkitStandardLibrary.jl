@@ -102,8 +102,7 @@ Linear 1D translational spring
     Spring(REL; name, k, delta_s, flange_a__v, flange_b__v)
 end # default
 
-@component function Spring(::Val{:relative}; name, k, delta_s = 0.0, flange_a__v = 0.0,
-        flange_b__v = 0.0)
+@component function Spring(::Val{:relative}; name, k, delta_s = 0.0 , flange_a__v = 0.0, flange_b__v = 0.0)
     pars = @parameters begin
         k = k
     end
@@ -139,6 +138,29 @@ const ABS = Val(:absolute)
 
     @named flange_a = MechanicalPort(; v = flange_a__v)
     @named flange_b = MechanicalPort(; v = flange_b__v)
+
+    eqs = [D(sa) ~ flange_a.v
+           D(sb) ~ flange_b.v
+           f ~ k * (sa - sb - l) #delta_s
+           flange_a.f ~ +f
+           flange_b.f ~ -f]
+    return compose(ODESystem(eqs, t, vars, pars; name = name),
+        flange_a,
+        flange_b) #, flange_a.f => k * (flange_a__s - flange_b__s - l)
+end
+@component function SpringMKR(; name, k, sa = 0, sb = 0,l = 0)
+    pars = @parameters begin
+        k = k
+        l = l
+    end
+    vars = @variables begin
+        sa(t) = sa
+        sb(t) = sb
+        f(t) 
+    end
+
+    @named flange_a = MechanicalPort()
+    @named flange_b = MechanicalPort()
 
     eqs = [D(sa) ~ flange_a.v
            D(sb) ~ flange_b.v

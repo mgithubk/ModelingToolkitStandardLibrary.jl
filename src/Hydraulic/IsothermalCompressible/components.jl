@@ -428,7 +428,7 @@ end
 """
     Volume(; x, dx=0, p, drho=0, dm=0, area, direction = +1, name)
 
-Volume with moving wall with `flange` connector for converting hydraulic energy to 1D mechanical.  The `direction` argument aligns the mechanical port with the hydraulic port, useful when connecting two dynamic volumes together in oppsing directions to create an actuator.
+Volume with moving wall with `flange` connector for converting hydraulic energy to 1D mechanical.  The `direction` argument aligns the mechanical port with the hydraulic port, useful when connecting two dynamic volumes together in opposing directions to create an actuator.
 
 ```
      ┌─────────────────┐ ───
@@ -478,7 +478,7 @@ See also [`FixedVolume`](@ref), [`DynamicVolume`](@ref)
         p(t)
         f(t)
         rho(t)
-        drho(t)
+        drho(t), [guess=0]
         dm(t)
     end
 
@@ -962,7 +962,6 @@ dm ────►  effective area
 - 
 
 # Parameters:
-## volume
 - `area`: [m^2] physical area
 - `cd`: [unitless] discharge coefficient
 
@@ -979,14 +978,39 @@ dm ────►  effective area
         # The Valve component should be updated too.
     end
     @components begin
-        area = Constant(k=Aₒ)
+        #area = Constant(k=area)
         valve = Valve(Cd= 1 / (Cd * Cd))
-        port₁ = HydraulicPort()
-        port₂ = HydraulicPort()
+        port_a = HydraulicPort()
+        port_b = HydraulicPort()
     end
     @equations begin
-        connect(valve.area, area.output)
+        valve.area.u ~ area
         connect(valve.port_a, port_a)
         connect(valve.port_b, port_b)
     end
 end
+
+@component function OrificeComp(reversible = false;
+        area, Cd, Cd_reverse = Cd,
+        name)
+    pars = @parameters begin
+	area = area
+        Cd = 1 / (Cd * Cd)
+        Cd_reverse = Cd_reverse
+    end
+
+    systems = @named begin
+        port_a = HydraulicPort()
+        port_b = HydraulicPort()
+        base = ValveBase(reversible; Cd, Cd_reverse)
+    end
+
+    vars = []
+
+    eqs = [connect(base.port_a, port_a)
+           connect(base.port_b, port_b)
+           base.area ~ area]
+
+    ODESystem(eqs, t, vars, pars; name, systems)
+end
+
